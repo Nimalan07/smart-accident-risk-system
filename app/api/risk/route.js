@@ -10,6 +10,8 @@ export async function POST(req) {
 
   const nearbyAccidents = accidents.filter(
     (a) =>
+      a.latitude &&
+      a.longitude &&
       Math.abs(a.latitude - lat) < 0.05 &&
       Math.abs(a.longitude - lng) < 0.05
   );
