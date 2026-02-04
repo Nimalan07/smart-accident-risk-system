@@ -3,8 +3,6 @@
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
-import { useMap } from "react-leaflet";
-import cities from "@/data/cities.json";
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
@@ -23,25 +21,33 @@ const Popup = dynamic(
   { ssr: false }
 );
 
-function ChangeView({ center }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map || !center) return;
-    map.setView(center, 12);
-  }, [center, map]);
-
-  return null;
-}
-
 export default function MapView() {
   const [city, setCity] = useState("Chennai");
   const [center, setCenter] = useState([13.0827, 80.2707]);
   const [riskData, setRiskData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  async function fetchRisk(lat, lon) {
+  async function fetchRisk(lat, lon, cityName) {
+    setLoading(true);
+
     let weather = "clear";
+    let trafficCongestion = 0;
 
+    // 1️⃣ REAL-TIME TRAFFIC
+    try {
+      const trafficRes = await fetch("/api/traffic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lon })
+      });
+
+      if (trafficRes.ok) {
+        const t = await trafficRes.json();
+        trafficCongestion = t.congestion ?? 0;
+      }
+    } catch {}
+
+    // 2️⃣ REAL-TIME WEATHER
     try {
       const weatherRes = await fetch("/api/weather", {
         method: "POST",
@@ -50,67 +56,67 @@ export default function MapView() {
       });
 
       if (weatherRes.ok) {
-        const text = await weatherRes.text();
-        if (text) {
-          const weatherData = JSON.parse(text);
-          weather = weatherData.weather || "clear";
-        }
+        const w = await weatherRes.json();
+        weather = w.weather || "clear";
       }
     } catch {}
 
+    // 3️⃣ RISK ENGINE
     try {
-      const res = await fetch("/api/risk", {
+      const riskRes = await fetch("/api/risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           weather,
-          hour: new Date().getHours(),
-          isWeekend: false,
-          lat,
-          lng: lon
+          trafficCongestion
         })
       });
 
-      if (!res.ok) return;
+      if (!riskRes.ok) {
+        setLoading(false);
+        return;
+      }
 
-      const text = await res.text();
-      if (!text) return;
-
-      const data = JSON.parse(text);
-      setRiskData(data);
+      const result = await riskRes.json();
+      setRiskData({ output: result });
     } catch {}
+
+    setLoading(false);
   }
 
-  function handleCheck() {
-    const input = city.trim().toLowerCase();
+  async function handleCheck() {
+    const input = city.trim();
+    if (!input) return;
 
-    const cityKey = Object.keys(cities).find(
-      (c) => c.toLowerCase() === input
-    );
+    const geoRes = await fetch("/api/geocode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ city: input })
+    });
 
-    if (!cityKey) {
-      alert("City not found in database");
+    if (!geoRes.ok) {
+      const err = await geoRes.json();
+      alert(err.error || "Invalid city");
       return;
     }
 
-    const { lat, lon } = cities[cityKey];
-    setCenter([lat, lon]);
-    fetchRisk(lat, lon);
+    const geo = await geoRes.json();
+    setCenter([geo.lat, geo.lon]);
+
+    fetchRisk(geo.lat, geo.lon, input);
   }
 
   function handleKeyDown(e) {
-    if (e.key === "Enter") {
-      handleCheck();
-    }
+    if (e.key === "Enter") handleCheck();
   }
 
   useEffect(() => {
     handleCheck();
   }, []);
 
-  const getColor = (level) => {
-    if (level === "High") return "red";
-    if (level === "Medium") return "orange";
+  const getColor = (lvl) => {
+    if (lvl === "High") return "red";
+    if (lvl === "Medium") return "orange";
     return "green";
   };
 
@@ -121,30 +127,31 @@ export default function MapView() {
           value={city}
           onChange={(e) => setCity(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Enter city name"
-          style={{ padding: "6px" }}
+          placeholder="Enter Indian city"
+          style={{ padding: "6px", width: "220px" }}
         />
         <button
           onClick={handleCheck}
-          style={{ marginLeft: "8px", padding: "6px 10px" }}
+          style={{ marginLeft: "8px", padding: "6px 12px" }}
         >
           Check Risk
         </button>
       </div>
 
+      {loading && <p>Fetching real-time data…</p>}
+
       <MapContainer
+        key={center.join(",")}
         center={center}
         zoom={12}
         style={{ height: "500px", width: "100%" }}
       >
-        <ChangeView center={center} />
-
         <TileLayer
           attribution="© OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {riskData && (
+        {riskData?.output && (
           <Circle
             center={center}
             radius={1500}

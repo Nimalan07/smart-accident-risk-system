@@ -1,32 +1,42 @@
-import { calculateRisk } from "@/lib/riskCalculator";
-import { getTrafficLevel } from "@/lib/trafficLogic";
-import { loadAccidentData } from "@/lib/dataParser";
-
 export async function POST(req) {
-  const body = await req.json();
-  const { weather, hour, isWeekend, lat, lng } = body;
+  try {
+    const { weather, trafficCongestion, accidentCount } =
+      await req.json();
 
-  const accidents = loadAccidentData();
+    // ✅ Base risk (always present)
+    let riskScore = 15;
 
-  const nearbyAccidents = accidents.filter(
-    (a) =>
-      a.latitude &&
-      a.longitude &&
-      Math.abs(a.latitude - lat) < 0.05 &&
-      Math.abs(a.longitude - lng) < 0.05
-  );
+    // Weather impact
+    if (weather === "rain") riskScore += 15;
+    if (weather === "fog") riskScore += 20;
 
-  const trafficLevel = getTrafficLevel(hour, isWeekend);
+    // Traffic impact
+    if (trafficCongestion > 60) riskScore += 40;
+    else if (trafficCongestion > 30) riskScore += 25;
+    else if (trafficCongestion > 10) riskScore += 10;
+    else riskScore += 5; // even light traffic adds some risk
 
-  const result = calculateRisk({
-    weather,
-    hour,
-    trafficLevel,
-    pastAccidents: nearbyAccidents.length
-  });
+    // Accident news impact
+    if (accidentCount >= 10) riskScore += 30;
+    else if (accidentCount >= 5) riskScore += 20;
+    else if (accidentCount >= 2) riskScore += 10;
 
-  return Response.json({
-    output: result,
-    pastAccidents: nearbyAccidents.length
-  });
+    riskScore = Math.min(Math.round(riskScore), 100);
+
+    let riskLevel = "Low";
+    if (riskScore >= 70) riskLevel = "High";
+    else if (riskScore >= 35) riskLevel = "Medium";
+
+    return Response.json({
+      riskScore,
+      riskLevel,
+      trafficCongestion,
+      accidentCount
+    });
+  } catch {
+    return Response.json(
+      { error: "Invalid request" },
+      { status: 400 }
+    );
+  }
 }
