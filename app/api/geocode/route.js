@@ -30,11 +30,12 @@ export async function POST(req) {
       );
     }
 
-    return Response.json({
-      lat: parseFloat(place.lat),
-      lon: parseFloat(place.lon),
-      name: place.display_name
-    });
+  return Response.json({
+  lat: parseFloat(place.lat),
+  lon: parseFloat(place.lon),
+  bbox: place.boundingbox.map(Number)
+});
+
   } catch {
     return Response.json({ error: "Geocoding failed" }, { status: 500 });
   }
