@@ -24,7 +24,6 @@ export async function POST(req) {
 
     const text = await res.text();
 
-    // 🛑 Handle XML error safely
     if (text.startsWith("<")) {
       return Response.json({ roads: [] });
     }
@@ -35,7 +34,7 @@ export async function POST(req) {
       roads: data.elements || []
     });
 
-  } catch (err) {
+  } catch {
     return Response.json({ roads: [] });
   }
 }

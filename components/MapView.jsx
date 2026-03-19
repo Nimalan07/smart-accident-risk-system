@@ -23,24 +23,51 @@ export default function MapView() {
   const [roads, setRoads] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ FIXED: now accepts bbox properly
-  async function fetchRoads(bbox) {
-    if (!bbox) return;
+  // 🎯 SMART TRAFFIC LOGIC
+  function calculateTraffic(road, centerLat, centerLon) {
+    let base = 20;
 
+    const type = road.tags?.highway || "";
+
+    // 🚗 road importance
+    if (type === "motorway") base += 60;
+    else if (type === "trunk") base += 50;
+    else if (type === "primary") base += 40;
+    else if (type === "secondary") base += 30;
+
+    // 📍 distance from city center
+    if (road.geometry && road.geometry.length > 0) {
+      const p = road.geometry[0];
+
+      const dLat = p.lat - centerLat;
+      const dLon = p.lon - centerLon;
+      const distance = Math.sqrt(dLat * dLat + dLon * dLon);
+
+      if (distance < 0.05) base += 30;   // city core
+      else if (distance < 0.1) base += 15;
+    }
+
+    // 🎲 small randomness
+    base += Math.random() * 10;
+
+    return Math.min(100, Math.floor(base));
+  }
+
+  async function fetchRoads(bbox, centerLat, centerLon) {
     setLoading(true);
 
     try {
       const res = await fetch("/api/roads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bbox }) // ✅ correct
+        body: JSON.stringify({ bbox })
       });
 
       const data = await res.json();
 
-      const roadsWithTraffic = (data.roads || []).map((r) => ({
+      const roadsWithTraffic = data.roads.map((r) => ({
         ...r,
-        traffic: Math.floor(Math.random() * 100)
+        traffic: calculateTraffic(r, centerLat, centerLon)
       }));
 
       setRoads(roadsWithTraffic);
@@ -68,10 +95,12 @@ export default function MapView() {
 
     const geo = await geoRes.json();
 
-    setCenter([geo.lat, geo.lon]);
+    const lat = geo.lat;
+    const lon = geo.lon;
 
-    // ✅ FIXED: passing bbox correctly
-    await fetchRoads(geo.bbox);
+    setCenter([lat, lon]);
+
+    await fetchRoads(geo.bbox, lat, lon);
   }
 
   function handleKeyDown(e) {
@@ -102,29 +131,23 @@ export default function MapView() {
           onClick={handleCheck}
           style={{ marginLeft: "8px", padding: "6px 12px" }}
         >
-          Check Traffic
+          Show Smart Traffic
         </button>
       </div>
 
-      {loading && <p>Loading road traffic…</p>}
+      {loading && <p>Analyzing traffic patterns…</p>}
 
       {center && (
         <MapContainer
           key={`${center[0]}-${center[1]}`}
           center={center}
-          zoom={13}
+          zoom={12}
           style={{ height: "500px", width: "100%" }}
         >
           <TileLayer
             attribution="© OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-
-          {roads.length === 0 && !loading && (
-            <p style={{ position: "absolute", top: 10, left: 10 }}>
-              No roads found
-            </p>
-          )}
 
           {roads.map((road, i) => {
             if (!road.geometry) return null;
