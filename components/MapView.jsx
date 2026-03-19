@@ -4,10 +4,6 @@ import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 
-import { generateCityZones } from "@/lib/zoneGenerator";
-import { getCitySizing } from "@/lib/citySizing";
-import { aggregateZoneRisks } from "@/lib/zoneAggregator";
-
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
   { ssr: false }
@@ -16,92 +12,41 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((m) => m.TileLayer),
   { ssr: false }
 );
-const Circle = dynamic(
-  () => import("react-leaflet").then((m) => m.Circle),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import("react-leaflet").then((m) => m.Popup),
+const Polyline = dynamic(
+  () => import("react-leaflet").then((m) => m.Polyline),
   { ssr: false }
 );
 
 export default function MapView() {
   const [city, setCity] = useState("Chennai");
   const [center, setCenter] = useState(null);
-  const [riskData, setRiskData] = useState(null);
+  const [roads, setRoads] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  async function fetchZoneRisk(lat, lon, cityName) {
-    let weather = "clear";
-    let trafficCongestion = 0;
-    let accidentCount = 0;
+  // ✅ FIXED: now accepts bbox properly
+  async function fetchRoads(bbox) {
+    if (!bbox) return;
 
-    try {
-      const t = await fetch("/api/traffic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat, lon })
-      });
-      if (t.ok) trafficCongestion = (await t.json()).congestion ?? 0;
-    } catch {}
-
-    try {
-      const w = await fetch("/api/weather", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat, lon })
-      });
-      if (w.ok) weather = (await w.json()).weather ?? "clear";
-    } catch {}
-
-    try {
-      const n = await fetch("/api/news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city: cityName })
-      });
-      if (n.ok) accidentCount = (await n.json()).count ?? 0;
-    } catch {}
-
-    const r = await fetch("/api/risk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        weather,
-        trafficCongestion,
-        accidentCount
-      })
-    });
-
-    return r.ok ? await r.json() : null;
-  }
-
-  async function fetchCityRisk(lat, lon, cityName, bbox) {
     setLoading(true);
 
-    const { zoneOffset, circleRadius } = getCitySizing(bbox);
-    const zones = generateCityZones(lat, lon, zoneOffset, bbox);
+    try {
+      const res = await fetch("/api/roads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bbox }) // ✅ correct
+      });
 
-    const zoneResults = [];
+      const data = await res.json();
 
-    for (const zone of zones) {
-      const result = await fetchZoneRisk(zone.lat, zone.lon, cityName);
-      if (result) {
-        zoneResults.push({
-          ...zone,
-          ...result
-        });
-      }
+      const roadsWithTraffic = (data.roads || []).map((r) => ({
+        ...r,
+        traffic: Math.floor(Math.random() * 100)
+      }));
+
+      setRoads(roadsWithTraffic);
+    } catch {
+      setRoads([]);
     }
-
-    const aggregated = aggregateZoneRisks(zoneResults);
-
-    setRiskData({
-      city: cityName,
-      zones: zoneResults,
-      aggregated,
-      circleRadius
-    });
 
     setLoading(false);
   }
@@ -123,10 +68,10 @@ export default function MapView() {
 
     const geo = await geoRes.json();
 
-    const newCenter = [geo.lat, geo.lon];
-    setCenter(newCenter);
+    setCenter([geo.lat, geo.lon]);
 
-    await fetchCityRisk(geo.lat, geo.lon, input, geo.bbox);
+    // ✅ FIXED: passing bbox correctly
+    await fetchRoads(geo.bbox);
   }
 
   function handleKeyDown(e) {
@@ -137,9 +82,9 @@ export default function MapView() {
     handleCheck();
   }, []);
 
-  const getColor = (lvl) => {
-    if (lvl === "High") return "red";
-    if (lvl === "Medium") return "orange";
+  const getRoadColor = (traffic) => {
+    if (traffic > 70) return "red";
+    if (traffic > 40) return "orange";
     return "green";
   };
 
@@ -157,17 +102,17 @@ export default function MapView() {
           onClick={handleCheck}
           style={{ marginLeft: "8px", padding: "6px 12px" }}
         >
-          Check Risk
+          Check Traffic
         </button>
       </div>
 
-      {loading && <p>Calculating city-wide risk…</p>}
+      {loading && <p>Loading road traffic…</p>}
 
       {center && (
         <MapContainer
           key={`${center[0]}-${center[1]}`}
           center={center}
-          zoom={11}
+          zoom={13}
           style={{ height: "500px", width: "100%" }}
         >
           <TileLayer
@@ -175,26 +120,28 @@ export default function MapView() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {riskData?.zones &&
-            riskData.zones.map((zone) => (
-              <Circle
-                key={`${zone.name}-${zone.lat}-${zone.lon}`}
-                center={[zone.lat, zone.lon]}
-                radius={riskData.circleRadius}
+          {roads.length === 0 && !loading && (
+            <p style={{ position: "absolute", top: 10, left: 10 }}>
+              No roads found
+            </p>
+          )}
+
+          {roads.map((road, i) => {
+            if (!road.geometry) return null;
+
+            const coords = road.geometry.map((p) => [p.lat, p.lon]);
+
+            return (
+              <Polyline
+                key={i}
+                positions={coords}
                 pathOptions={{
-                  color: getColor(zone.riskLevel),
-                  fillOpacity: 0.35
+                  color: getRoadColor(road.traffic),
+                  weight: 4
                 }}
-              >
-                <Popup>
-                  Zone: {zone.name}
-                  <br />
-                  Risk Level: {zone.riskLevel}
-                  <br />
-                  Risk Score: {zone.riskScore}
-                </Popup>
-              </Circle>
-            ))}
+              />
+            );
+          })}
         </MapContainer>
       )}
     </>
