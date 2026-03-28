@@ -1,36 +1,152 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚗 Smart Accident Risk Analysis System
 
-## Getting Started
+## 📌 Overview
+Smart Accident Risk Analysis System is a web-based application that predicts road accident risk levels and helps users choose safer travel routes. It integrates historical accident data, traffic conditions, and weather information to visualize high-risk zones on an interactive map.
 
-First, run the development server:
+This project is designed especially for **Indian city environments** and aims to improve road safety through data-driven insights.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 🎯 Key Features
+
+- 🔍 Predicts accident risk levels (Low / Medium / High)
+- 🗺️ Interactive map visualization using Leaflet
+- 📊 Displays accident-prone zones (heatmaps & markers)
+- 🚦 Considers traffic conditions for risk analysis
+- 🌦️ Includes weather-based risk factors
+- 🚨 Real-time alerts and notifications
+- 🛣️ Suggests safer alternative routes
+- 📁 Uses structured datasets (CSV + JSON)
+
+---
+
+## 🧠 How It Works
+
+1. User selects a location  
+2. System fetches:
+   - Accident data  
+   - Traffic conditions  
+   - Weather data  
+3. Risk is calculated using internal logic  
+4. Results are displayed on a map with alerts  
+5. Safer routes are suggested avoiding high-risk zones  
+
+---
+
+## 🏗️ Tech Stack
+
+- **Frontend:** Next.js, React  
+- **Backend:** Next.js API Routes  
+- **Mapping:** Leaflet.js  
+- **Data Processing:** JavaScript  
+- **Data Sources:** CSV, JSON  
+
+---
+
+## 📂 Full Project Structure
 ```
+smart-accident-risk-system/
+│
+├── app/
+│ ├── alerts/
+│ │ └── page.js
+│ │
+│ ├── api/
+│ │ ├── accidents/
+│ │ │ └── route.js
+│ │ ├── geocode/
+│ │ │ └── route.js
+│ │ ├── news/
+│ │ │ └── route.js
+│ │ ├── risk/
+│ │ │ └── route.js
+│ │ ├── route/
+│ │ │ └── route.js
+│ │ ├── traffic/
+│ │ │ └── route.js
+│ │ └── weather/
+│ │ └── route.js
+│ │
+│ ├── dashboard/
+│ │ └── page.js
+│ │
+│ ├── favicon.ico
+│ ├── globals.css
+│ ├── layout.js
+│ ├── page.js
+│ └── page.module.css
+│
+├── components/
+│ ├── AlertsCenter.jsx
+│ ├── MapView.jsx
+│ ├── RiskWorkbench.jsx
+│ └── SafetyNotifier.jsx
+│
+├── data/
+│ ├── accidents.csv
+│ └── risk_grid.json
+│
+├── lib/
+│ ├── accidentInsights.js
+│ ├── cityRadius.js
+│ ├── citySizing.js
+│ ├── dataParser.js
+│ ├── mapOverlays.js
+│ ├── reportGenerator.js
+│ ├── riskCalculator.js
+│ ├── riskModel.js
+│ ├── routePlanner.js
+│ ├── trafficLogic.js
+│ ├── zoneAggregator.js
+│ ├── zoneGenerator.js
+│ └── zoneRiskProfile.js
+│
+├── public/
+│ ├── file.svg
+│ ├── globe.svg
+│ ├── next.svg
+│ ├── vercel.svg
+│ └── window.svg
+│
+├── .gitignore
+├── eslint.config.mjs
+├── jsconfig.json
+├── next.config.mjs
+└── package.json
+```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Installation & Setup
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### 1️⃣ Clone the repository
+```git clone https://github.com/Nimalan07/smart-accident-risk-system.git ```
+### 2️⃣ Navigate into the project
+- cd smart-accident-risk-system
+### 3️⃣ Install dependencies
+- npm install
+### 4️⃣ Run the development server
+- npm run dev
+### 5️⃣ Open in browser
+- http://localhost:3000
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📊 Use Cases
+- 🚗 Drivers choosing safer routes
+- 🚓 Traffic authorities identifying accident hotspots
+- 🏙️ Smart city planning and analysis
+- 🚑 Emergency services route optimization
+- 📈 Research and data analysis
+---
 
-## Learn More
+## ⚠️ Limitations
+- Uses static datasets (not fully real-time)
+- Risk prediction is rule-based (no ML yet)
+- Requires external APIs for live deployment
+---
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔮 Future Enhancements
+- 🤖 Machine Learning-based prediction
+- 📡 Real-time traffic and accident APIs
+- 📱 Mobile responsive UI / App
+- 🔔 Push notifications
+- 📊 Advanced analytics dashboard
